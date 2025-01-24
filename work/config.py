@@ -1,0 +1,1 @@
+DATA_PATH = '2025_Problem_D_Data'

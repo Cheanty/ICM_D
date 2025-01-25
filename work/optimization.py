@@ -1,9 +1,10 @@
+from matplotlib import pyplot as plt
 from config import *
 import pandas as pd
 import networkx as nx
 import heapq
 import random
-
+import re
 # 加载数据
 def load_data():
     nodes = pd.read_csv(f'../{DATA_PATH}/nodes_clear.csv', usecols=NODES_LIST)
@@ -23,14 +24,18 @@ def build_network():
         if row['highway'] in EDGE_HIGHWAY_DICT:
             highway = EDGE_HIGHWAY_DICT[row['highway']]
         else: highway = 0
-        if not row['lanes']: lanes = 2
-        else : lanes = row['lanes']
+        if pd.isna(row['lanes']) or row['lanes'] == '':
+            lanes = 2  # 如果是NaN或者空字符串，设置为默认值
+        else:
+            lanes = int(row['lanes'])  # 转换为整数
         if not row['maxspeed']: maxspeed = 60
-        else: maxspeed = row['maxspeed']
+        else:
+            match = re.match(r'(\d+)', row['maxspeed'])
+            maxspeed = float(match.group(1))
         if not row['oneway']: oneway = 2
         else: oneway = 1
         if not row['length']: length = 100
-        else : length = row['length']
+        else : length = float(row['length'])
         G.add_edge(row['u'], row['v'], osmid=row['osmid'], highway=highway, lanes=lanes, maxspeed=maxspeed, oneway=oneway, length=length)
     return G
 
@@ -43,6 +48,7 @@ def add_degree_to_nodes(G):
 def add_time_to_edges(G):
     '''通行时间'''
     for u,v,data in G.edges(data=True):
+        if data['highway'] ==0: data['highway'] = 1
         tm = data['length']/data['maxspeed']/data['highway']
         G[u][v]['time'] = tm - (G.nodes[u]['highway'] + G.nodes[v]['highway'])*tm*NODE_HIGHWAY_K
 
@@ -65,7 +71,13 @@ def set_traffic_zero_to_edges(G):
         G[u][v]['traffic'] = 0
 
 def init_graph():
-    G = build_network()
+    # G = build_network()
+    gml_file_path = f'../{DATA_PATH}/a1_graph.gml'
+    G = nx.read_gml(gml_file_path, destringizer=int)
+    # 添加大桥
+    # G.add_edge(11763173296, 49415813,osmid = "",highway = 60 ,lanes=6,
+    #             maxspeed=55,oneway=2,length=2600,
+    #             capacity=10000,traffic=0,time=100)
     add_degree_to_nodes(G)
     add_time_to_edges(G)
     add_capacity_to_edges(G)
@@ -121,6 +133,7 @@ def time_sum(G,order):
 # 计算个体的适应度
 def fitness(G, order):
     total_time, _ = time_sum(G, order)
+    print(total_time)
     return total_time
 
 # 随机生成一个初始路径（个体）
@@ -173,15 +186,14 @@ def mutate(individual):
 # 主遗传算法函数
 def genetic_algorithm(G, generations=100, population_size=50, mutation_rate=0.1):
     # 获取所有节点的osmid
-    nodes = [G.nodes[node]['osmid'] for node in G.nodes if 'osmid' in G.nodes[node]]
-    
+    nodes = list(G.nodes)
     # 初始化种群
     population = [generate_individual(nodes) for _ in range(population_size)]
     
     for generation in range(generations):
         # 计算每个个体的适应度
         fitness_scores = [fitness(G, individual) for individual in population]
-        
+        print(f"现在第 {generation} 代,最小适应度为min{fitness_scores}")
         # 如果当前最好的个体已经满足优化条件，提前终止
         if min(fitness_scores) == 0:
             print(f"找到最优解，在第 {generation} 代结束")
@@ -211,16 +223,27 @@ def genetic_algorithm(G, generations=100, population_size=50, mutation_rate=0.1)
     # 返回最优解
     best_individual = population[fitness_scores.index(min(fitness_scores))]
     return best_individual
+def plot_network(G):
+    # 提取节点位置
+    pos = nx.get_node_attributes(G, 'pos')
 
+    # 绘制图
+    plt.figure(figsize=(12, 8))
+    nx.draw(G, pos, node_size=5, with_labels=False, edge_color='blue', alpha=0.7)
+    plt.title("Baltimore Road Network")
+    plt.show()
 if __name__ == '__main__':
     # 初始化图
-    gml_file_path = f'../{DATA_PATH}/undirected_graph.gml'
-    G = nx.read_gml(gml_file_path, destringizer=int)
-    # 打印图 G 的第一个节点
-    first_node = list(G.nodes())[0]  # 将节点转换为列表，并获取第一个节点
-    print(first_node)
-    # # 执行遗传算法
-    # best_order = genetic_algorithm(G)
 
-    # # 打印最优路径顺序
-    # print("最优路径顺序:", best_order)
+
+    G = init_graph()
+    # first_5_nodes = list(G.nodes(data=True))[:1]
+    # for node ,data in first_5_nodes:
+    #     print(node)
+    #     print(data)
+
+    # 执行遗传算法
+    best_order = genetic_algorithm(G,10,10,0.1)
+
+    # 打印最优路径顺序
+    print("最优路径顺序:", best_order)

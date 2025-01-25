@@ -59,7 +59,7 @@ def add_traffic_to_node(G):
             G.nodes[node]['traffic'] += edge_data['capacity']
         G.nodes[node]['traffic'] = G.nodes[node]['traffic'] / 2 / G.nodes[node]['degree']
 
-def add_traffic_to_edges(G):
+def set_traffic_zero_to_edges(G):
     '''道路流量'''
     for u,v,data in G.edges(data=True):
         G[u][v]['traffic'] = 0
@@ -70,7 +70,7 @@ def init_graph():
     add_time_to_edges(G)
     add_capacity_to_edges(G)
     add_traffic_to_node(G)
-    add_traffic_to_edges(G)
+    set_traffic_zero_to_edges(G)
     return G
 
 def change_time(traffic,capacity,time):
@@ -115,11 +115,8 @@ def time_sum(G,order):
         distances, _ = dijkstra(G, order[i])
         node_time.append(distances)
         total += sum(distances.values())
+    set_traffic_zero_to_edges(G)
     return total, node_time
-
-G = init_graph()
-
-order = [G.nodes[node]['osmid'] for node in G.nodes if 'osmid' in G.nodes[node]]
 
 # 计算个体的适应度
 def fitness(G, order):
@@ -215,8 +212,15 @@ def genetic_algorithm(G, generations=100, population_size=50, mutation_rate=0.1)
     best_individual = population[fitness_scores.index(min(fitness_scores))]
     return best_individual
 
-# 执行遗传算法
-best_order = genetic_algorithm(G)
+if __name__ == '__main__':
+    # 初始化图
+    gml_file_path = f'../{DATA_PATH}/undirected_graph.gml'
+    G = nx.read_gml(gml_file_path, destringizer=int)
+    # 打印图 G 的第一个节点
+    first_node = list(G.nodes())[0]  # 将节点转换为列表，并获取第一个节点
+    print(first_node)
+    # # 执行遗传算法
+    # best_order = genetic_algorithm(G)
 
-# 打印最优路径顺序
-print("最优路径顺序:", best_order)
+    # # 打印最优路径顺序
+    # print("最优路径顺序:", best_order)

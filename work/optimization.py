@@ -1,3 +1,4 @@
+import json
 from matplotlib import pyplot as plt
 from config import *
 import pandas as pd
@@ -75,9 +76,9 @@ def init_graph():
     gml_file_path = f'../{DATA_PATH}/a1_graph.gml'
     G = nx.read_gml(gml_file_path, destringizer=int)
     # 添加大桥
-    # G.add_edge(11763173296, 49415813,osmid = "",highway = 60 ,lanes=6,
-    #             maxspeed=55,oneway=2,length=2600,
-    #             capacity=10000,traffic=0,time=100)
+    G.add_edge(11763173296, 49415813,osmid = "",highway = 60 ,lanes=6,
+                maxspeed=55,oneway=2,length=2600,
+                capacity=10000,traffic=0,time=100)
     add_degree_to_nodes(G)
     add_time_to_edges(G)
     add_capacity_to_edges(G)
@@ -122,18 +123,43 @@ def dijkstra(G, start):
 
 def time_sum(G,order):
     total = 0
-    node_time = []
+    # node_time = []
     for i in range(len(order)-1):
         distances, _ = dijkstra(G, order[i])
-        node_time.append(distances)
+        # node_time.append(distances)
         total += sum(distances.values())
     set_traffic_zero_to_edges(G)
+    return total
     return total, node_time
 
 # 计算个体的适应度
+i=0
 def fitness(G, order):
-    total_time, _ = time_sum(G, order)
+    global i
+    i+=1
+    total_time = time_sum(G, order)
     print(total_time)
+    # 数据格式
+    data = {
+        'i': i,
+        'total_time': total_time,
+    }
+
+    # 将数据写入 JSON 文件
+    try:
+        # 读取现有数据
+        with open(f'../{DATA_PATH}/data2.json', 'r') as f:
+            existing_data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        # 如果文件不存在或为空，则初始化为一个空列表
+        existing_data = []
+
+    # 将新数据追加到现有数据
+    existing_data.append(data)
+
+    # 保存更新后的数据到文件
+    with open(f'../{DATA_PATH}/data2.json', 'w') as f:
+        json.dump(existing_data, f, indent=4)
     return total_time
 
 # 随机生成一个初始路径（个体）
@@ -243,7 +269,7 @@ if __name__ == '__main__':
     #     print(data)
 
     # 执行遗传算法
-    best_order = genetic_algorithm(G,10,10,0.1)
+    best_order = genetic_algorithm(G,100,100,0.1)
 
     # 打印最优路径顺序
     print("最优路径顺序:", best_order)
